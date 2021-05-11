@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
@@ -53,50 +54,19 @@ namespace WinApp
 			{
 				if (tb_Search.Text == "")
 				{
-					DisplayStocks(selectedExchange);
+					//If search field is empty we display all stocks from the currently selected exchange
+					SortStocksByExchange(selectedExchange);
 					return;
 				}
 
-				List<StockBaseViewModel> tempList = new List<StockBaseViewModel>();
-
-				for (int i = currentExchangeStocks.Count - 1; i >= 0; i--)
-				{
-					var item = currentExchangeStocks[i];
-					if (item.Symbol.ToLower().Contains(tb_Search.Text.ToLower()))
-					{
-						tempList.Add(item);
-					}
-				}
-
-				lvStocks.ItemsSource = tempList;
+				List<StockBaseViewModel> filteredList = currentExchangeStocks.Where(x => x.Symbol.ToLower().Contains(tb_Search.Text.ToLower())).ToList();
+				lvStocks.ItemsSource = filteredList;
 			}
 		}
 
-		private void StockList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		private async void StockList_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			if (lvStocks.SelectedItem == null) return;
-
-			var selectedStock = ((StockBaseViewModel)lvStocks.SelectedItem);
-			string sym = selectedStock.Symbol;
-			string name = selectedStock.Name;
-			
-			model.NewPlot(sym, name);
-			model.AddStockData(controller.GetHistoricalStockData(sym));
-			model.DisplayDailyPrice();
-
-			if (!stockGraphUpdater.Enabled)
-			{
-				stockGraphUpdater.Elapsed += (sender, e) => UpdateStockData(sender, e, sym);
-			}
-			else
-			{
-				stockGraphUpdater.Dispose();
-				stockGraphUpdater = new Timer();
-				stockGraphUpdater.Elapsed += (sender, e) => UpdateStockData(sender, e, sym);
-			}
-
-			stockGraphUpdater.Interval = 5000; // 10 sec
-			stockGraphUpdater.Enabled = true;
+			await DisplaySelectedStock();
 		}
 		private void UpdateStockData(object source, ElapsedEventArgs e, string symbol)
 		{
@@ -106,22 +76,31 @@ namespace WinApp
 		private void cbExchange_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
 			string exchange = (sender as ComboBox).SelectedItem as string;
-			DisplayStocks(exchange);
+			SortStocksByExchange(exchange);
 		}
 
-		private void Window_ContentRendered(object sender, EventArgs e)
+		private async void Window_ContentRendered(object sender, EventArgs e)
 		{
 			//Get all stocks
-			var stockList = controller.GetSymbols();
-			if (stockList != null)
+			try
 			{
-				allStocks = stockList;
-				UpdateExchanges();
-				DisplayStocks("all");
+				List<StockBaseViewModel> stockList = await Task.Run(() => controller.GetSymbols());
+				if (stockList != null)
+				{
+					allStocks = stockList;
+					UpdateExchanges();
+					SortStocksByExchange("all");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("There was an error retrieving the stock symbols list from the database.");
+				Console.WriteLine(ex.Message);
+				throw;
 			}
 		}
 
-		private void DisplayStocks(string exchange)
+		private void SortStocksByExchange(string exchange)
 		{
 			if(selectedExchange == exchange)
 			{
@@ -135,7 +114,7 @@ namespace WinApp
 			}
 			else
 			{
-				//Remove all null values
+				//Remove all null values (stocks without exchange)
 				var tmpList = allStocks.FindAll(c => c.Exchange != null && !c.Exchange.Equals(string.Empty));
 				//Find all stocks with matching exchange
 				var sortedList = tmpList.FindAll(x => x.Exchange.Equals(exchange));
@@ -148,8 +127,11 @@ namespace WinApp
 		private void UpdateExchanges()
 		{
 			cbExchange.Items.Clear();
+			//Find all unique exchanges
 			var tmpExchangeList = allStocks.Select(x => x.Exchange).Distinct();
+			//Add a default one
 			cbExchange.Items.Add("All");
+			//Add all unique ones to the list
 			foreach (var ex in tmpExchangeList)
 			{
 				if(ex != "") cbExchange.Items.Add(ex);
@@ -179,6 +161,35 @@ namespace WinApp
 				view.SortDescriptions.Clear();
 				view.SortDescriptions.Add(new SortDescription(columnHeader, ListSortDirection.Ascending));
 			}
+		}
+		private async Task DisplaySelectedStock()
+		{
+			if (lvStocks.SelectedItem == null) return;
+			
+			var selectedStock = ((StockBaseViewModel)lvStocks.SelectedItem);
+			string sym = selectedStock.Symbol;
+			string name = selectedStock.Name;
+
+			List<StockData> data = await Task.Run(() => controller.GetHistoricalStockData(sym));
+
+			model.NewPlot(sym, name);
+			model.AddStockData(data);
+			model.DisplayDailyPrice();
+
+			if (!stockGraphUpdater.Enabled)
+			{
+				stockGraphUpdater.Elapsed += (sender, e) => UpdateStockData(sender, e, sym);
+			}
+			else
+			{
+				//Restart timer to update the newly selected stock
+				stockGraphUpdater.Dispose();
+				stockGraphUpdater = new Timer();
+				stockGraphUpdater.Elapsed += (sender, e) => UpdateStockData(sender, e, sym);
+			}
+
+			stockGraphUpdater.Interval = 5000;
+			stockGraphUpdater.Enabled = true;
 		}
 	}
 

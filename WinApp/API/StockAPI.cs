@@ -21,7 +21,7 @@ namespace WinApp.API
 		{
 			string path = "/v3/stock/list?";
 			var response = GET(GetURI(path));
-			string content = response.Content.ReadAsStringAsync().Result;
+			string content =  response.Content.ReadAsStringAsync().Result;
 
 			if (response.StatusCode == System.Net.HttpStatusCode.OK)
 			{

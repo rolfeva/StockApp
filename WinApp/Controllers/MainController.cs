@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using WinApp.API;
 using WinApp.Models;
 using WinApp.Views.ViewModels;
@@ -14,7 +15,9 @@ namespace WinApp.Controllers
 		public List<StockBaseViewModel> GetSymbols()
 		{
 			StockAPI api = new StockAPI();
-			var stockQuery = from stock in api.GetSymbolList() select
+			var symbols = api.GetSymbolList();
+			var stockQuery = from stock in symbols
+							 select
 							 new StockBaseViewModel
 							 {
 								 Name = stock.name,
