@@ -6,7 +6,7 @@
 		xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf" 
         xmlns:local="clr-namespace:WinApp"
         mc:Ignorable="d"
-        Title="MainWindow" Height="850" Width="1500"
+        Title="" Height="850" Width="1500"
 		WindowStartupLocation="CenterScreen"
 		ContentRendered="Window_ContentRendered">
 	<Grid Margin="0,0,0,-16">
