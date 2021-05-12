@@ -23,6 +23,7 @@ namespace WinApp
 		List<StockBaseViewModel> currentExchangeStocks; //List of all the stocks from the currently selected exchange
 		string selectedExchange;
 		MainViewModel model;
+
 		Timer stockGraphUpdater;
 
 		public MainWindow()
